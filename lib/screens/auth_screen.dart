@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:counter_app/services/auth_service.dart';
-
+import 'dart:io' show Platform;
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -19,33 +19,57 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
   String _errorMessage = '';
 
-
-Future<void> _login() async {
-  if (!_formKey.currentState!.validate()) return;
-
-  setState(() {
-    _isLoading = true;
-    _errorMessage = '';
-  });
-
-  final result = await AuthService.login(
-    _emailController.text.trim(),
-    _phoneController.text.trim(),
-  );
-
-  if (result['success']) {
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, '/home');
-    }
-  } else {
+  Future<void> _handleSocialAuth(Future<Map<String, dynamic>> Function() signInMethod) async {
     setState(() {
-      _errorMessage = result['message'];
+      _isLoading = true;
+      _errorMessage = '';
     });
+
+    try {
+      final result = await signInMethod();
+      if (result['success']) {
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      } else {
+        setState(() {
+          _errorMessage = result['message'];
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+      });
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
-  setState(() => _isLoading = false);
-}
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
 
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    final result = await AuthService.login(
+      _emailController.text.trim(),
+      _phoneController.text.trim(),
+    );
+
+    if (result['success']) {
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } else {
+      setState(() {
+        _errorMessage = result['message'];
+      });
+    }
+
+    setState(() => _isLoading = false);
+  }
 
   @override
   void dispose() {
@@ -78,6 +102,47 @@ Future<void> _login() async {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 30),
+                
+                // Social Login Buttons
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : () => _handleSocialAuth(AuthService.signInWithGoogle),
+                  icon: Image.network(
+                    'https://www.google.com/favicon.ico',
+                    height: 24,
+                  ),
+                  label: const Text('Continue with Google'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                if (Platform.isIOS)
+                  ElevatedButton.icon(
+                    onPressed: _isLoading ? null : () => _handleSocialAuth(AuthService.signInWithApple),
+                    icon: const Icon(Icons.apple),
+                    label: const Text('Continue with Apple'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                
+                const SizedBox(height: 24),
+                const Row(
+                  children: [
+                    Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('OR'),
+                    ),
+                    Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Email and Phone Login Form
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
@@ -141,7 +206,7 @@ Future<void> _login() async {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Login'),
+                      : const Text('Login with Email & Phone'),
                 ),
               ],
             ),

@@ -3,6 +3,61 @@ const jwt = require("jsonwebtoken");
 const router = express.Router();
 
 /**
+ * Social Authentication endpoint
+ * @route POST /auth/social
+ */
+router.post("/social", async (req, res) => {
+  try {
+    const { provider, token, email, name, providerId } = req.body;
+
+    console.log("[AUTH] Social login attempt:", { provider, email });
+
+    if (!provider || !token || !email) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "MISSING_FIELDS",
+          message: "Provider, token and email are required",
+        },
+      });
+    }
+
+    // Mock user creation/login
+    // In production, verify the token with Google/Apple
+    const mockUser = {
+      id: providerId || "social_123",
+      email,
+      name: name || "Social User",
+      provider,
+      role: "user",
+    };
+
+    const jwtToken = jwt.sign(
+      { user: mockUser },
+      process.env.JWT_SECRET || "secret",
+      { expiresIn: "24h" }
+    );
+
+    res.json({
+      success: true,
+      data: {
+        token: jwtToken,
+        user: mockUser,
+      },
+    });
+  } catch (error) {
+    console.error("[AUTH] Social login error:", error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: "SERVER_ERROR",
+        message: "An error occurred during social authentication",
+      },
+    });
+  }
+});
+
+/**
  * Login endpoint that generates JWT token
  * @route POST /login
  * @param {string} email - User's email
