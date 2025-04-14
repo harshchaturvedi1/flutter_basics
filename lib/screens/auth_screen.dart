@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:counter_app/services/auth_service.dart';
+
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -17,65 +19,33 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
   String _errorMessage = '';
 
-  Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
 
+Future<void> _login() async {
+  if (!_formKey.currentState!.validate()) return;
+
+  setState(() {
+    _isLoading = true;
+    _errorMessage = '';
+  });
+
+  final result = await AuthService.login(
+    _emailController.text.trim(),
+    _phoneController.text.trim(),
+  );
+
+  if (result['success']) {
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/home');
+    }
+  } else {
     setState(() {
-      _isLoading = true;
-      _errorMessage = '';
+      _errorMessage = result['message'];
     });
-
-    try {
-      final response = await http.post(
-        Uri.parse('http://localhost:3000/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': _emailController.text.trim(),
-          'phone': _phoneController.text.trim(),
-        }),
-      );
-
-      print('Response status code: ${response.statusCode}');
-      print('Response body: ${response.body}');
-      
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        print('Decoded response data: $data');
-        
-        if (data['data'] != null && data['data']['token'] != null) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('jwt_token', data['data']['token']);
-          print('Token saved to SharedPreferences');
-          
-          if (mounted) {
-            // Navigate to home screen
-            Navigator.pushReplacementNamed(context, '/home');
-          }
-        } else {
-          print('No token found in response');
-          setState(() {
-            _errorMessage = 'Invalid response from server';
-          });
-        }
-      } else {
-        final errorData = jsonDecode(response.body);
-        setState(() {
-          _errorMessage = errorData['message'] ?? 'Login failed';
-        });
-      }
-    } catch (e) {
-      print('Error during login: ${e.toString()}');
-      setState(() {
-        _errorMessage = 'Connection error: ${e.toString()}';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
   }
+
+  setState(() => _isLoading = false);
+}
+
 
   @override
   void dispose() {
